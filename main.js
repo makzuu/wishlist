@@ -22,6 +22,12 @@ function verify() {
     }
 }
 
+function getStringOfItems(user) {
+    return wishList[user].items
+        .map((item, i) => `${i+1}- ${item}`)
+        .join('\n')
+}
+
 app.use(express.json({ verify: verify() }))
 
 app.use(function (req, res, next) {
@@ -68,6 +74,24 @@ app.post('/interactions', function (req, res) {
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
                     content: `**${item.value}** added!`
+                }
+            })
+        }
+
+        if (name === 'list') {
+            if (!wishList[user]) {
+                return res.json({
+                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                    data: {
+                        content: 'No items have been found'
+                    }
+                })
+            }
+
+            return res.json({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: getStringOfItems(user)
                 }
             })
         }

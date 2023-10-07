@@ -4,7 +4,6 @@ import fetch from 'node-fetch'
 const TEST_COMMAND = {
     name: 'tesito',
     description: 'para ver si funca o no funca na',
-    type: 1,
 }
 
 const ADD_COMMAND = {
@@ -18,6 +17,11 @@ const ADD_COMMAND = {
             required: 1,
         }
     ]
+}
+
+const LIST_COMMAND = {
+    name: 'list',
+    description: 'list of items in your wishlist',
 }
 
 async function updateCommands(commands) {
@@ -49,4 +53,6 @@ async function updateCommands(commands) {
     }
 }
 
-updateCommands([TEST_COMMAND, ADD_COMMAND])
+updateCommands([
+    TEST_COMMAND, ADD_COMMAND, LIST_COMMAND
+])
