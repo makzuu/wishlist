@@ -7,6 +7,19 @@ const TEST_COMMAND = {
     type: 1,
 }
 
+const ADD_COMMAND = {
+    name: 'add',
+    description: 'add an item to your wishlist',
+    options: [
+        {
+            type: 3,
+            name: 'item',
+            description: 'the item you want',
+            required: 1,
+        }
+    ]
+}
+
 async function updateCommands(commands) {
     const appId = process.env.APP_ID
     const baseUrl = 'https://discord.com/api/v10/'
@@ -36,4 +49,4 @@ async function updateCommands(commands) {
     }
 }
 
-updateCommands([TEST_COMMAND])
+updateCommands([TEST_COMMAND, ADD_COMMAND])
