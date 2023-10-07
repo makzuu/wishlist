@@ -4,6 +4,8 @@ import {
     InteractionType, InteractionResponseType, verifyKey
 } from 'discord-interactions'
 
+const wishList = {}
+
 const app = express()
 
 function verify() {
@@ -37,13 +39,35 @@ app.post('/interactions', function (req, res) {
     }
 
     if (type === InteractionType.APPLICATION_COMMAND) {
-        const { name } = data
+        const { name, options } = data
+        let { user } = req.body
+
+        if (!user) user = req.body.member.user
 
         if (name === 'tesito') {
             return res.json({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
                     content: 'con pansito'
+                }
+            })
+        }
+
+        if (name === 'add') {
+            const item = options.find(option => option.name === 'item')
+
+            if (!wishList[user]) {
+                wishList[user] = {
+                    items: [ item.value ]
+                }
+            } else {
+                wishList[user].items.push(item.value)
+            }
+
+            return res.json({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: `**${item.value}** added!`
                 }
             })
         }
