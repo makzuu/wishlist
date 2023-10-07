@@ -34,7 +34,6 @@ async function updateCommands(commands) {
     } catch (err) {
         console.error(err)
     }
-
 }
 
 updateCommands([TEST_COMMAND])
