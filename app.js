@@ -41,6 +41,14 @@ function getDiscordUser(body) {
     return { id: body.member.user.id, name: body.member.user.global_name }
 }
 
+function getListOfGames(games) {
+    if (games.length === 0) {
+        return 'No games have been found'
+    }
+
+    return games.map(game => `- **${game.name}**`).join('\n')
+}
+
 app.use(express.json({ verify: verify() }))
 
 app.post('/interactions', async function (req, res) {
@@ -104,19 +112,20 @@ app.post('/interactions', async function (req, res) {
         }
 
         if (name === 'list') {
-            if (!wishList[user]) {
-                return res.json({
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: {
-                        content: 'No items have been found'
-                    }
-                })
+            let user = await User.findOne({ discord_id: discordUser.id })
+            if (!user) {
+                user = await new User({
+                    name: discordUser.name,
+                    discord_id: discordUser.id,
+                }).save()
             }
+
+            await user.populate('wishlist')
 
             return res.json({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
-                    content: getStringOfItems(user)
+                    content: getListOfGames(user.wishlist)
                 }
             })
         }
