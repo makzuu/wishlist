@@ -8,12 +8,12 @@ const TEST_COMMAND = {
 
 const ADD_COMMAND = {
     name: 'add',
-    description: 'add an item to your wishlist',
+    description: 'add a game to your wishlist',
     options: [
         {
             type: 3,
-            name: 'item',
-            description: 'the item you want',
+            name: 'game',
+            description: 'the game you want',
             required: 1,
         }
     ]
@@ -21,7 +21,7 @@ const ADD_COMMAND = {
 
 const LIST_COMMAND = {
     name: 'list',
-    description: 'list of items in your wishlist',
+    description: 'list of games in your wishlist',
 }
 
 async function updateCommands(commands) {
