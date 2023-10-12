@@ -120,14 +120,111 @@ app.post('/interactions', async function (req, res) {
                 }).save()
             }
 
-            await user.populate('wishlist')
+            await user.populate({ path: 'wishlist', options: { limit: 10 }})
 
             return res.json({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
-                    content: getListOfGames(user.wishlist)
+                    content: getListOfGames(user.wishlist),
+                    components: [
+                        {
+                            type: 1,
+                            components: [
+                                {
+                                    type: 2,
+                                    label: 'next',
+                                    style: 1,
+                                    custom_id: 'skip10'
+                                }
+                            ]
+                        }
+                    ]
                 }
             })
+        }
+    }
+
+    if (type === InteractionType.MESSAGE_COMPONENT) {
+        if (data.component_type === 2) {
+            if (data.custom_id.startsWith('skip')) {
+                const discordUser = getDiscordUser(req.body)
+                const user = await User.findOne({ discord_id: discordUser.id })
+
+                const skip = parseInt(data.custom_id.substring(4))
+                const limit = 10
+
+                const len = user.wishlist.length
+
+                await user.populate({ path: 'wishlist', options: { skip, limit }})
+
+                if (skip === 0) {
+                    return res.json({
+                        type: InteractionResponseType.UPDATE_MESSAGE,
+                        data: {
+                            content: getListOfGames(user.wishlist),
+                            components: [
+                                {
+                                    type: 1,
+                                    components: [
+                                        {
+                                            type: 2,
+                                            label: 'next',
+                                            style: 1,
+                                            custom_id: 'skip10'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    })
+                } else if (skip + limit > len) {
+                    return res.json({
+                        type: InteractionResponseType.UPDATE_MESSAGE,
+                        data: {
+                            content: getListOfGames(user.wishlist),
+                            components: [
+                                {
+                                    type: 1,
+                                    components: [
+                                        {
+                                            type: 2,
+                                            label: 'prev',
+                                            style: 1,
+                                            custom_id: `skip${skip - limit}`
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    })
+                } else {
+                    return res.json({
+                        type: InteractionResponseType.UPDATE_MESSAGE,
+                        data: {
+                            content: getListOfGames(user.wishlist),
+                            components: [
+                                {
+                                    type: 1,
+                                    components: [
+                                        {
+                                            type: 2,
+                                            label: 'prev',
+                                            style: 1,
+                                            custom_id: `skip${skip - limit}`
+                                        },
+                                        {
+                                            type: 2,
+                                            label: 'next',
+                                            style: 1,
+                                            custom_id: `skip${skip + limit}`
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    })
+                }
+            }
         }
     }
 })
