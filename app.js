@@ -53,6 +53,7 @@ app.use(express.json({ verify: verify() }))
 
 app.post('/interactions', async function (req, res) {
     const { type, data } = req.body
+    const discordUser = getDiscordUser(req.body)
 
     if (type === InteractionType.PING) {
         return res.json({
@@ -62,7 +63,6 @@ app.post('/interactions', async function (req, res) {
 
     if (type === InteractionType.APPLICATION_COMMAND) {
         const { name, options } = data
-        const discordUser = getDiscordUser(req.body)
 
         if (name === 'tesito') {
             return res.json({
@@ -134,7 +134,7 @@ app.post('/interactions', async function (req, res) {
                                     type: 2,
                                     label: 'next',
                                     style: 1,
-                                    custom_id: 'skip10'
+                                    custom_id: `skip;10;${discordUser.id}`
                                 }
                             ]
                         }
@@ -147,84 +147,87 @@ app.post('/interactions', async function (req, res) {
     if (type === InteractionType.MESSAGE_COMPONENT) {
         if (data.component_type === 2) {
             if (data.custom_id.startsWith('skip')) {
-                const discordUser = getDiscordUser(req.body)
-                const user = await User.findOne({ discord_id: discordUser.id })
+                if (data.custom_id.endsWith(discordUser.id)) {
+                    const user = await User.findOne({ discord_id: discordUser.id })
 
-                const skip = parseInt(data.custom_id.substring(4))
-                const limit = 10
+                    const custom_id_array = data.custom_id.split(';')
+                    const skip = parseInt(custom_id_array[1])
+                    const limit = 10
 
-                const len = user.wishlist.length
+                    const len = user.wishlist.length
 
-                await user.populate({ path: 'wishlist', options: { skip, limit }})
+                    await user.populate({ path: 'wishlist', options: { skip, limit }})
 
-                if (skip === 0) {
-                    return res.json({
-                        type: InteractionResponseType.UPDATE_MESSAGE,
-                        data: {
-                            content: getListOfGames(user.wishlist),
-                            components: [
-                                {
-                                    type: 1,
-                                    components: [
-                                        {
-                                            type: 2,
-                                            label: 'next',
-                                            style: 1,
-                                            custom_id: 'skip10'
-                                        }
-                                    ]
-                                }
-                            ]
-                        }
-                    })
-                } else if (skip + limit > len) {
-                    return res.json({
-                        type: InteractionResponseType.UPDATE_MESSAGE,
-                        data: {
-                            content: getListOfGames(user.wishlist),
-                            components: [
-                                {
-                                    type: 1,
-                                    components: [
-                                        {
-                                            type: 2,
-                                            label: 'prev',
-                                            style: 1,
-                                            custom_id: `skip${skip - limit}`
-                                        }
-                                    ]
-                                }
-                            ]
-                        }
-                    })
-                } else {
-                    return res.json({
-                        type: InteractionResponseType.UPDATE_MESSAGE,
-                        data: {
-                            content: getListOfGames(user.wishlist),
-                            components: [
-                                {
-                                    type: 1,
-                                    components: [
-                                        {
-                                            type: 2,
-                                            label: 'prev',
-                                            style: 1,
-                                            custom_id: `skip${skip - limit}`
-                                        },
-                                        {
-                                            type: 2,
-                                            label: 'next',
-                                            style: 1,
-                                            custom_id: `skip${skip + limit}`
-                                        }
-                                    ]
-                                }
-                            ]
-                        }
-                    })
+                    if (skip === 0) {
+                        return res.json({
+                            type: InteractionResponseType.UPDATE_MESSAGE,
+                            data: {
+                                content: getListOfGames(user.wishlist),
+                                components: [
+                                    {
+                                        type: 1,
+                                        components: [
+                                            {
+                                                type: 2,
+                                                label: 'next',
+                                                style: 1,
+                                                custom_id: `skip;10;${discordUser.id}`
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        })
+                    } else if (skip + limit > len) {
+                        return res.json({
+                            type: InteractionResponseType.UPDATE_MESSAGE,
+                            data: {
+                                content: getListOfGames(user.wishlist),
+                                components: [
+                                    {
+                                        type: 1,
+                                        components: [
+                                            {
+                                                type: 2,
+                                                label: 'prev',
+                                                style: 1,
+                                                custom_id: `skip;${skip - limit};${discordUser.id}`
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        })
+                    } else {
+                        return res.json({
+                            type: InteractionResponseType.UPDATE_MESSAGE,
+                            data: {
+                                content: getListOfGames(user.wishlist),
+                                components: [
+                                    {
+                                        type: 1,
+                                        components: [
+                                            {
+                                                type: 2,
+                                                label: 'prev',
+                                                style: 1,
+                                                custom_id: `skip;${skip - limit};${discordUser.id}`
+                                            },
+                                            {
+                                                type: 2,
+                                                label: 'next',
+                                                style: 1,
+                                                custom_id: `skip;${skip + limit};${discordUser.id}`
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        })
+                    }
                 }
             }
         }
+        return res.status(401).end()
     }
 })
