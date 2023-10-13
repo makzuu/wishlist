@@ -54,7 +54,7 @@ function getComponents(games, limit, skip, discordUser, len) {
         type: 2,
         label: `${index + 1}`,
         style: 2,
-        custom_id: `show;${game._id};${discordUser.id}`
+        custom_id: `options;${game._id};${discordUser.id}`
     }))
 
     let paginationButtons = []
@@ -252,20 +252,45 @@ app.post('/interactions', async function (req, res) {
             console.log(data)
             if (data.custom_id.startsWith('options')) {
                 if (data.custom_id.endsWith(discordUser.id)) {
+                    const custom_idArray = data.custom_id.split(';')
+                    const gameId = custom_idArray[1]
+                    const game = await Game.findById(gameId)
                     return res.json({
                         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                         data: {
-                            content: 'in construction'
+                            content: getListOfGames([game]),
+                            components: [
+                                {
+                                    type: 1,
+                                    components: [
+                                        {
+                                            type: 2,
+                                            label: 'delete',
+                                            style: 4,
+                                            custom_id: `delete;${game._id};${discordUser.id}`,
+                                        }
+                                    ]
+                                }
+                            ]
                         }
                     })
                 }
             }
             if (data.custom_id.startsWith('delete')) {
                 if (data.custom_id.endsWith(discordUser.id)) {
+                    const custom_idArray = data.custom_id.split(';')
+
+                    const gameId = custom_idArray[1]
+                    const game = await Game.findByIdAndRemove(gameId)
+
+                    const user = await User.findOne({ discord_id: discordUser.id })
+                    user.wishlist = user.wishlist.filter(id => id.toString() !== gameId.toString())
+                    await user.save()
+
                     return res.json({
                         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                         data: {
-                            content: 'in construction'
+                            content: `game **${game.name}** was deleted`
                         }
                     })
                 }
