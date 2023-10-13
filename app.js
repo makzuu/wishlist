@@ -46,65 +46,76 @@ function getListOfGames(games) {
         return 'No games have been found'
     }
 
-    return games.map(game => `- **${game.name}**`).join('\n')
+    return games.map((game, index) => `${index + 1}. **${game.name}**`).join('\n')
 }
 
-function getComponents(games, limit, skip, discordUser, len) {
-    const gameButtons = games.map((game, index) => ({
-        type: 2,
-        label: `${index + 1}`,
-        style: 2,
-        custom_id: `options;${game._id};${discordUser.id}`
-    }))
-
-    let paginationButtons = []
-
-    if (len <= limit) {
-        paginationButtons = []
-    } else if (skip === 0) {
-        paginationButtons = [
-            {
+function getOptionButtons(games, discordUserId) {
+    return {
+        type: 1,
+        components: [
+            ...games.map((game, index) => ({
                 type: 2,
-                label: 'next',
-                style: 1,
-                custom_id: `skip;${skip+limit};${discordUser.id}`
-            }
-        ]
-    } else if (skip + limit >= len) {
-        paginationButtons = [
-            {
-                type: 2,
-                label: 'prev',
-                style: 1,
-                custom_id: `skip;${skip-limit};${discordUser.id}`
-            }
-        ]
-    } else {
-        paginationButtons = [
-            {
-                type: 2,
-                label: 'prev',
-                style: 1,
-                custom_id: `skip;${skip-limit};${discordUser.id}`
-            },
-            {
-                type: 2,
-                label: 'next',
-                style: 1,
-                custom_id: `skip;${skip+limit};${discordUser.id}`
-            }
+                label: `${index + 1}`,
+                style: 2,
+                custom_id: `options;${game._id};${discordUserId}`
+            }))
         ]
     }
-
-    return [
-        ...gameButtons,
-        ...paginationButtons
-    ]
 }
 
-const LIMIT = 3
-const SKIP = 3
+function getNavButtons(skip, limit, discordUserId, len) {
 
+    const paginationButtons = {
+        type: 1,
+        components: []
+    }
+
+    const leftButton = {
+        type: 2,
+        label: 'prev',
+        style: 1,
+        custom_id: `skip;${skip-limit};${discordUserId}`
+    }
+
+    const rightButton = {
+        type: 2,
+        label: 'next',
+        style: 1,
+        custom_id: `skip;${skip+limit};${discordUserId}`
+    }
+
+    if (len <= limit) {
+        return paginationButtons
+    } else if (skip === 0) {
+        paginationButtons.components.push(rightButton)
+    } else if (skip + limit >= len) {
+        paginationButtons.components.push(leftButton)
+    } else {
+        paginationButtons.components.push(leftButton, rightButton)
+    }
+
+    return paginationButtons
+}
+
+function getComponents(games, discordUserId, skip, limit, len) {
+    const optionsButtons = getOptionButtons(games, discordUserId)
+    const navButtons = getNavButtons(skip, limit, discordUserId, len)
+
+    const components = []
+
+    if (optionsButtons.components.length !== 0) {
+        components.push(optionsButtons)
+    }
+
+    if (navButtons.components.length !== 0) {
+        components.push(navButtons)
+    }
+
+    return components
+}
+
+const LIMIT = 5
+const SKIP = 5
 
 app.use(express.json({ verify: verify() }))
 
@@ -125,7 +136,8 @@ app.post('/interactions', async function (req, res) {
             return res.json({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
-                    content: 'con pansito'
+                    content: 'con pansito',
+                    components: []
                 }
             })
         }
@@ -183,27 +195,11 @@ app.post('/interactions', async function (req, res) {
 
             await user.populate({ path: 'wishlist', options: { limit }})
 
-            if (len === 0) {
-                return res.json({
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: {
-                        content: getListOfGames(user.wishlist),
-                    }
-                })
-            }
-
             return res.json({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
                     content: getListOfGames(user.wishlist),
-                    components: [
-                        {
-                            type: 1,
-                            components: [
-                                ...getComponents(user.wishlist, limit, skip, discordUser, len)
-                            ]
-                        }
-                    ]
+                    components: getComponents(user.wishlist, discordUser.id, skip, limit, len)
                 }
             })
 
@@ -224,39 +220,23 @@ app.post('/interactions', async function (req, res) {
 
                     await user.populate({ path: 'wishlist', options: { skip, limit }})
 
-                    if (len === 0) {
-                        return res.json({
-                            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                            data: {
-                                content: getListOfGames(user.wishlist),
-                            }
-                        })
-                    }
-
                     return res.json({
                         type: InteractionResponseType.UPDATE_MESSAGE,
                         data: {
                             content: getListOfGames(user.wishlist),
-                            components: [
-                                {
-                                    type: 1,
-                                    components: [
-                                        ...getComponents(user.wishlist, limit, skip, discordUser, len)
-                                    ]
-                                }
-                            ]
+                            components: getComponents(user.wishlist, discordUser.id, skip, limit, len)
                         }
                     })
                 }
             }
-            console.log(data)
             if (data.custom_id.startsWith('options')) {
                 if (data.custom_id.endsWith(discordUser.id)) {
                     const custom_idArray = data.custom_id.split(';')
                     const gameId = custom_idArray[1]
                     const game = await Game.findById(gameId)
+
                     return res.json({
-                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        type: InteractionResponseType.UPDATE_MESSAGE,
                         data: {
                             content: getListOfGames([game]),
                             components: [
@@ -265,9 +245,15 @@ app.post('/interactions', async function (req, res) {
                                     components: [
                                         {
                                             type: 2,
+                                            label: 'show',
+                                            style: 1,
+                                            custom_id: `show;${game._id};${discordUser.id}`
+                                        },
+                                        {
+                                            type: 2,
                                             label: 'delete',
                                             style: 4,
-                                            custom_id: `delete;${game._id};${discordUser.id}`,
+                                            custom_id: `delete;${game._id};${discordUser.id}`
                                         }
                                     ]
                                 }
@@ -288,9 +274,10 @@ app.post('/interactions', async function (req, res) {
                     await user.save()
 
                     return res.json({
-                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        type: InteractionResponseType.UPDATE_MESSAGE,
                         data: {
-                            content: `game **${game.name}** was deleted`
+                            content: `game **${game.name}** was deleted`,
+                            components: []
                         }
                     })
                 }
@@ -298,9 +285,10 @@ app.post('/interactions', async function (req, res) {
             if (data.custom_id.startsWith('show')) {
                 if (data.custom_id.endsWith(discordUser.id)) {
                     return res.json({
-                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        type: InteractionResponseType.UPDATE_MESSAGE,
                         data: {
-                            content: 'in construction'
+                            content: 'in construction',
+                            components: []
                         }
                     })
                 }
