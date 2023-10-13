@@ -49,6 +49,63 @@ function getListOfGames(games) {
     return games.map(game => `- **${game.name}**`).join('\n')
 }
 
+function getComponents(games, limit, skip, discordUser, len) {
+    const gameButtons = games.map((game, index) => ({
+        type: 2,
+        label: `${index + 1}`,
+        style: 2,
+        custom_id: `show;${game._id};${discordUser.id}`
+    }))
+
+    let paginationButtons = []
+
+    if (len <= limit) {
+        paginationButtons = []
+    } else if (skip === 0) {
+        paginationButtons = [
+            {
+                type: 2,
+                label: 'next',
+                style: 1,
+                custom_id: `skip;${skip+limit};${discordUser.id}`
+            }
+        ]
+    } else if (skip + limit >= len) {
+        paginationButtons = [
+            {
+                type: 2,
+                label: 'prev',
+                style: 1,
+                custom_id: `skip;${skip-limit};${discordUser.id}`
+            }
+        ]
+    } else {
+        paginationButtons = [
+            {
+                type: 2,
+                label: 'prev',
+                style: 1,
+                custom_id: `skip;${skip-limit};${discordUser.id}`
+            },
+            {
+                type: 2,
+                label: 'next',
+                style: 1,
+                custom_id: `skip;${skip+limit};${discordUser.id}`
+            }
+        ]
+    }
+
+    return [
+        ...gameButtons,
+        ...paginationButtons
+    ]
+}
+
+const LIMIT = 3
+const SKIP = 3
+
+
 app.use(express.json({ verify: verify() }))
 
 app.post('/interactions', async function (req, res) {
@@ -120,7 +177,20 @@ app.post('/interactions', async function (req, res) {
                 }).save()
             }
 
-            await user.populate({ path: 'wishlist', options: { limit: 10 }})
+            const limit = SKIP
+            const skip = 0
+            const len = user.wishlist.length
+
+            await user.populate({ path: 'wishlist', options: { limit }})
+
+            if (len === 0) {
+                return res.json({
+                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                    data: {
+                        content: getListOfGames(user.wishlist),
+                    }
+                })
+            }
 
             return res.json({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -130,17 +200,13 @@ app.post('/interactions', async function (req, res) {
                         {
                             type: 1,
                             components: [
-                                {
-                                    type: 2,
-                                    label: 'next',
-                                    style: 1,
-                                    custom_id: `skip;10;${discordUser.id}`
-                                }
+                                ...getComponents(user.wishlist, limit, skip, discordUser, len)
                             ]
                         }
                     ]
                 }
             })
+
         }
     }
 
@@ -152,79 +218,66 @@ app.post('/interactions', async function (req, res) {
 
                     const custom_id_array = data.custom_id.split(';')
                     const skip = parseInt(custom_id_array[1])
-                    const limit = 10
+                    const limit = LIMIT
 
                     const len = user.wishlist.length
 
                     await user.populate({ path: 'wishlist', options: { skip, limit }})
 
-                    if (skip === 0) {
+                    if (len === 0) {
                         return res.json({
-                            type: InteractionResponseType.UPDATE_MESSAGE,
+                            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                             data: {
                                 content: getListOfGames(user.wishlist),
-                                components: [
-                                    {
-                                        type: 1,
-                                        components: [
-                                            {
-                                                type: 2,
-                                                label: 'next',
-                                                style: 1,
-                                                custom_id: `skip;10;${discordUser.id}`
-                                            }
-                                        ]
-                                    }
-                                ]
-                            }
-                        })
-                    } else if (skip + limit > len) {
-                        return res.json({
-                            type: InteractionResponseType.UPDATE_MESSAGE,
-                            data: {
-                                content: getListOfGames(user.wishlist),
-                                components: [
-                                    {
-                                        type: 1,
-                                        components: [
-                                            {
-                                                type: 2,
-                                                label: 'prev',
-                                                style: 1,
-                                                custom_id: `skip;${skip - limit};${discordUser.id}`
-                                            }
-                                        ]
-                                    }
-                                ]
-                            }
-                        })
-                    } else {
-                        return res.json({
-                            type: InteractionResponseType.UPDATE_MESSAGE,
-                            data: {
-                                content: getListOfGames(user.wishlist),
-                                components: [
-                                    {
-                                        type: 1,
-                                        components: [
-                                            {
-                                                type: 2,
-                                                label: 'prev',
-                                                style: 1,
-                                                custom_id: `skip;${skip - limit};${discordUser.id}`
-                                            },
-                                            {
-                                                type: 2,
-                                                label: 'next',
-                                                style: 1,
-                                                custom_id: `skip;${skip + limit};${discordUser.id}`
-                                            }
-                                        ]
-                                    }
-                                ]
                             }
                         })
                     }
+
+                    return res.json({
+                        type: InteractionResponseType.UPDATE_MESSAGE,
+                        data: {
+                            content: getListOfGames(user.wishlist),
+                            components: [
+                                {
+                                    type: 1,
+                                    components: [
+                                        ...getComponents(user.wishlist, limit, skip, discordUser, len)
+                                    ]
+                                }
+                            ]
+                        }
+                    })
+                }
+            }
+            console.log(data)
+            if (data.custom_id.startsWith('options')) {
+                if (data.custom_id.endsWith(discordUser.id)) {
+                    return res.json({
+                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        data: {
+                            content: 'in construction'
+                        }
+                    })
+                }
+            }
+            if (data.custom_id.startsWith('delete')) {
+                if (data.custom_id.endsWith(discordUser.id)) {
+                    return res.json({
+                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        data: {
+                            content: 'in construction'
+                        }
+                    })
+                }
+            }
+            if (data.custom_id.startsWith('show')) {
+                if (data.custom_id.endsWith(discordUser.id)) {
+                    return res.json({
+                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        data: {
+                            content: 'in construction'
+                        }
+                    })
                 }
             }
         }
